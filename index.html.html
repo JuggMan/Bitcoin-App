@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Meta and Title -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Supply Tracker</title>
+    <!-- MathJax CDN for rendering LaTeX -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+            .then(() => console.log('Service Worker registered!'))
+            .catch((error) => console.error('Service Worker registration failed:', error));
+        }
+    </script>
+    <style>
+        /* Reset default styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        /* Updated Styles for Top Metrics */
+        #topMetrics {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+
+        .metric {
+            width: 100%;
+            margin: 15px 0;
+            padding: 20px;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .metric h2 {
+            font-size: 1.8em;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .metric .value {
+            font-size: 3em;
+            color: #2980b9;
+        }
+
+        /* Existing Sections */
+        .section {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .value {
+            font-size: 1.2em;
+            color: #2980b9;
+            margin-bottom: 10px;
+        }
+
+        /* Removed .button styles since the button is removed */
+
+        .error {
+            color: #e74c3c;
+            margin-top: 15px;
+        }
+
+        .calculation {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            /* Removed fixed height and overflow to allow natural expansion */
+            white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.95em;
+            color: #2c3e50;
+        }
+
+        .formula {
+            background-color: #e8f8f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2em;
+            color: #16a085;
+            text-align: left;
+        }
+
+        /* Added Styles for Era Table */
+        .era-table-container {
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .era-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .era-table th, .era-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .era-table th {
+            background-color: #2980b9;
+            color: white;
+        }
+
+        /* Define row color classes with custom colors */
+        .full-era {
+            background-color: #11ff0034; /* Green */
+            color: black; /* Improves text readability */
+        }
+
+        .partial-era {
+            background-color: #faf27f5b; /* Yellow */
+            color: black; /* Improves text readability */
+        }
+
+        .no-era {
+            background-color: #a0151550; /* Red */
+            color: black; /* Improves text readability */
+        }
+
+        /* Style for Total Row */
+        .totals-row {
+            background-color: #00000050; /* Light Gray */
+            color: black;
+            font-weight: bold;
+        }
+
+        /* Commented out to prevent conflict with dynamic row colors */
+        /* .era-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        } */
+
+        .era-table tr:hover {
+            background-color: #ddd;
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                padding: 20px;
+            }
+
+            .metric h2 {
+                font-size: 1.5em;
+            }
+
+            .metric .value {
+                font-size: 2.5em;
+            }
+
+            .formula {
+                font-size: 1em;
+            }
+
+            /* Responsive Table */
+            .era-table th, .era-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Bitcoin Supply Tracker</h1>
+        <!-- Top Metrics Section -->
+        <div id="topMetrics">
+            <div class="metric">
+                <h2>Current Block Height</h2>
+                <div id="blockHeight" class="value">Loading...</div>
+            </div>
+            <div class="metric">
+                <h2>Expected Bitcoin Supply</h2>
+                <div id="expectedSupply" class="value">Calculating...</div>
+                </div>
+            <div class="metric">
+            	<h2>Unspendable Bitcoin</h2>
+                 <div id="actualSupply" class="value">unspendable 219.51</div>
+                 </div>
+        </div>
+        
+        <!-- Supply Formula -->
+        <div class="formula">
+            <strong>Supply Formula:</strong><br>
+            \[
+            \text{Total Supply} = \sum_{h=0}^{n} \left( \frac{50 \text{ BTC}}{2^h} \right) \times 210,000 \text{ blocks}
+            \]
+            <br>
+            <strong>Where:<br>
+            </strong>
+            - \( h \) = Halving era (0, 1, 2, ...) <br>
+            - \( n \) = Current era based on block height
+        </div>
+        
+        <!-- Added Era Table -->
+        <div class="era-table-container">
+            <h2>Bitcoin Halving Eras</h2>
+            <!-- Color Legend -->
+            <p>
+                <span style="background-color: #11ff0034; color: black; padding: 5px 10px; border-radius: 3px; display: inline-block; margin-right: 10px;">Full Era Mined</span> 
+                <span style="background-color: #faf27f5b; color: black; padding: 5px 10px; border-radius: 3px; display: inline-block; margin-right: 10px;">Partial Era Mined</span> 
+                <span style="background-color: #a0151550; color: black; padding: 5px 10px; border-radius: 3px; display: inline-block; margin-right: 10px;">No Blocks Mined</span>
+                <a href="https://twitter.com/JuggManGuwop" target="_blank" style="text-decoration: none;">
+                    <span style="background-color: #00000050; color: black; padding: 5px 10px; border-radius: 3px; display: inline-block;">@JuggManGuwop</span>
+                </a>
+            </p>
+            <table class="era-table" id="eraTable">
+                <thead>
+                    <tr>
+                        <th>Start Date</th>
+                        <th>Era</th>
+                        <th>Block Subsidy (BTC)</th>
+                        <th>Supply per Era (BTC)</th>
+                        <th>Total Supply (BTC)</th>
+                        <th>% of Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Table rows will be populated here dynamically -->
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="error" class="error"></div>
+    </div>
+
+    <script>
+        // Constants
+        const initialReward = 50; // BTC
+        const halvingInterval = 210000; // blocks
+        const totalBitcoin = 21000000; // Total Bitcoin supply
+        const genesisDate = new Date('2009-01-03T18:15:05Z'); // UTC time
+
+        // Hardcoded era start dates for eras that have happened so far
+        const hardcodedEraStartDates = {
+            0: new Date('2009-01-03T18:15:05Z'),
+            1: new Date('2012-11-28T15:24:38Z'),
+            2: new Date('2016-07-09T17:46:13Z'),
+            3: new Date('2020-05-11T19:23:43Z'),
+            4: new Date('2024-04-20T19:09:27Z'),
+            // Add more hardcoded dates if available
+        };
+
+        // Function to fetch the current Bitcoin block height and actual supply from Blockchain.com API
+        async function fetchBlockData() {
+            const blockHeightElement = document.getElementById('blockHeight');
+            const actualSupplyElement = document.getElementById('actualSupply');
+            const errorElement = document.getElementById('error');
+
+            blockHeightElement.textContent = 'Loading...';
+            actualSupplyElement.textContent = '219.51 BTC';
+            errorElement.textContent = '';
+
+            try {
+                // Fetch block height
+                const blockHeightResponse = await fetch('https://blockchain.info/q/getblockcount');
+                if (!blockHeightResponse.ok) {
+                    throw new Error(`Error fetching block height: ${blockHeightResponse.status} ${blockHeightResponse.statusText}`);
+                }
+                const blockHeightText = await blockHeightResponse.text();
+                const blockHeight = parseInt(blockHeightText);
+                blockHeightElement.textContent = blockHeight.toLocaleString();
+
+                return { blockHeight };
+            } catch (error) {
+                blockHeightElement.textContent = 'N/A';
+                errorElement.textContent = error.message;
+                console.error('Failed to fetch block data:', error);
+                return null;
+            }
+        }
+
+        // Function to calculate expected Bitcoin supply
+        async function calculateExpectedSupply(blockHeight) {
+            const expectedSupplyElement = document.getElementById('expectedSupply');
+            const errorElement = document.getElementById('error');
+
+            expectedSupplyElement.textContent = 'Calculating...';
+            errorElement.textContent = '';
+
+            let totalSupply = 0;
+            let era = 0;
+            const maxEras = 100; // Safety limit to prevent infinite loops
+
+            try {
+                while (era < maxEras) {
+                    let blocksInEra;
+                    const eraStartBlock = era * halvingInterval;
+                    if (blockHeight >= eraStartBlock) {
+                        blocksInEra = Math.min(blockHeight - eraStartBlock + 1, halvingInterval);
+                    } else {
+                        blocksInEra = 0; // Future era with no mined blocks
+                    }
+
+                    const reward = initialReward / Math.pow(2, era);
+
+                    // Ensure reward does not go below the smallest unit
+                    if (reward < 0.00000001) break;
+
+                    const supplyThisEra = blocksInEra * reward;
+                    totalSupply += supplyThisEra;
+
+                    era += 1;
+
+                    // Stop if total supply reaches or exceeds 21 million
+                    if (totalSupply >= totalBitcoin) {
+                        totalSupply = totalBitcoin; // Cap at 21 million
+                        break;
+                    }
+                }
+
+                expectedSupplyElement.textContent = `${totalSupply.toLocaleString()} BTC`;
+
+                return totalSupply;
+            } catch (error) {
+                expectedSupplyElement.textContent = 'N/A';
+                errorElement.textContent = `Error calculating expected supply: ${error.message}`;
+                console.error('Failed to calculate expected supply:', error);
+                return null;
+            }
+        }
+
+        // Function to populate the era table
+        async function populateEraTable(blockHeight, expectedTotalSupply) {
+            const eraTableBody = document.getElementById('eraTable').getElementsByTagName('tbody')[0];
+            eraTableBody.innerHTML = ''; // Clear previous table data
+
+            let era = 0;
+            const maxEras = 100; // Safety limit to prevent infinite loops
+
+            let grandTotalSupplyPerEra = 0; // For the Total Row
+            let totalSupplyMined = 0; // Total supply mined so far
+
+            try {
+                while (era < maxEras) {
+                    let blocksInEra;
+                    const eraStartBlock = era * halvingInterval;
+                    const eraEndBlock = (era + 1) * halvingInterval - 1;
+                    if (blockHeight >= eraStartBlock) {
+                        blocksInEra = Math.min(blockHeight - eraStartBlock + 1, halvingInterval);
+                    } else {
+                        blocksInEra = 0; // Future era with no mined blocks
+                    }
+
+                    const reward = initialReward / Math.pow(2, era);
+
+                    // Ensure reward does not go below the smallest unit
+                    if (reward < 0.00000001) break;
+
+                    // Calculate supply per era
+                    const supplyPerEra = halvingInterval * reward;
+                    const supplyThisEra = blocksInEra * reward;
+
+                    // Accumulate totals for the Total Row
+                    grandTotalSupplyPerEra += supplyPerEra;
+                    totalSupplyMined += supplyThisEra;
+
+                    // Calculate percentage of total for this era
+                    const percentageOfTotal = (Math.floor((supplyThisEra / totalBitcoin) * 10000) / 100).toFixed(2) + '%';
+
+                    // Calculate start date for this era
+                    let eraStartDate;
+                    if (hardcodedEraStartDates.hasOwnProperty(era)) {
+                        eraStartDate = hardcodedEraStartDates[era];
+                    } else if (blocksInEra > 0) {
+                        // For eras beyond hardcoded ones, estimate date based on average block time
+                        const averageBlockTime = 10 * 60 * 1000; // 10 minutes in milliseconds
+                        eraStartDate = new Date(genesisDate.getTime() + eraStartBlock * averageBlockTime);
+                    } else {
+                        // For future eras, estimate date based on current time and blocks remaining
+                        const blocksRemaining = eraStartBlock - blockHeight;
+                        const estimatedTime = blocksRemaining * 10 * 60 * 1000; // 10 minutes in milliseconds
+                        eraStartDate = new Date(Date.now() + estimatedTime);
+                    }
+
+                    const startDateFormatted = eraStartDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+                    // Add to Era Table
+                    const row = eraTableBody.insertRow();
+
+                    // Apply CSS class based on blocksInEra
+                    if (blocksInEra === halvingInterval) {
+                        row.classList.add('full-era'); // Full era mined
+                    } else if (blocksInEra > 0 && blocksInEra < halvingInterval) {
+                        row.classList.add('partial-era'); // Partial era mined
+                    } else if (blocksInEra === 0) {
+                        row.classList.add('no-era'); // No blocks mined in this era
+                    }
+
+                    // Populate cells
+                    row.insertCell(0).textContent = startDateFormatted; // Start Date
+                    row.insertCell(1).textContent = era; // Era Number
+                    row.insertCell(2).textContent = reward.toFixed(8); // Block Subsidy
+                    row.insertCell(3).textContent = supplyPerEra.toLocaleString(); // Supply per Era
+                    row.insertCell(4).textContent = supplyThisEra.toLocaleString(); // Total Supply (this era)
+                    row.insertCell(5).textContent = percentageOfTotal; // % of Total
+
+                    era += 1;
+
+                    // Ensure reward does not go below the smallest unit
+                    if (reward < 0.00000001) break;
+                }
+
+                // Calculate total percentage mined so far
+                const totalPercentageMined = (Math.floor((totalSupplyMined / totalBitcoin) * 10000) / 100).toFixed(2);
+
+                // Create Total Row
+                const totalRow = eraTableBody.insertRow(0); // Insert at the top
+                totalRow.classList.add('totals-row');
+
+                // Populate Total Row cells
+                totalRow.insertCell(0).textContent = 'Total';
+                totalRow.insertCell(1).textContent = '—';
+                totalRow.insertCell(2).textContent = '—';
+
+                // Total Supply per Era (should sum to 21,000,000 BTC)
+                totalRow.insertCell(3).textContent = totalBitcoin.toLocaleString();
+
+                // Total Supply Mined So Far
+                totalRow.insertCell(4).textContent = totalSupplyMined.toLocaleString() + ' BTC';
+
+                // Total Percentage of Total
+                totalRow.insertCell(5).textContent = `${totalPercentageMined}%`;
+
+            } catch (error) {
+                console.error('Failed to populate era table:', error);
+            }
+        }
+
+        // Function to refresh all data
+        async function refreshData() {
+            const blockData = await fetchBlockData();
+            if (blockData) {
+                // Calculate expected supply first
+                const expectedTotalSupply = await calculateExpectedSupply(blockData.blockHeight);
+                if (expectedTotalSupply !== null) {
+                    // Populate the era table
+                    await populateEraTable(blockData.blockHeight, expectedTotalSupply);
+                }
+            }
+        }
+
+        // Fetch data on page load
+        window.onload = refreshData;
+
+        // Optional: Refresh data every 10 minutes
+        setInterval(refreshData, 10 * 60 * 1000);
+    </script>
+
+</body>
+</html>
